@@ -8,7 +8,5 @@ was to learn how to write a shell, and the low level C UNIX APIs.
 Standard command:
 
 ```
-mkdir target && cd target
-cmake ..
-make
+make release
 ```
