@@ -14,7 +14,7 @@ add_executable(sally ${sources})
 
 if (CMAKE_BUILD_TYPE MATCHES RELEASE)
   message("release")
-  target_compile_options(sally PRIVATE -Werror -Wall -Wextra -O3) 
+  target_compile_options(sally PRIVATE -Werror -Wall -Wextra -O3 -DNDEBUG) 
 else()
   message("debug")
   target_compile_options(sally PRIVATE -Werror -Wall -Wextra -fsanitize=address -g)
