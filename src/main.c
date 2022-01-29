@@ -7,6 +7,10 @@ const size_t LINE_BUFFER_SIZE = (1 << 14);
 // The prompt to display in the shell.
 const char *PROMPT = ">> ";
 
+void handle_line(char const *line) {
+  fputs(line, stdout);
+}
+
 int main() {
   char line_buffer[LINE_BUFFER_SIZE];
 
@@ -19,6 +23,6 @@ int main() {
       perror("Error reading line:");
       continue;
     }
-    fputs(line_buffer, stdout);
+    handle_line(line_buffer);
   }
 }
