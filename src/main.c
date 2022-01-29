@@ -1,7 +1,9 @@
 #include "assert.h"
 #include "ctype.h"
+#include "stdbool.h"
 #include "stdint.h"
 #include "stdio.h"
+#include "unistd.h"
 
 typedef enum Error {
   ERROR_NONE,
@@ -97,6 +99,24 @@ const size_t LINE_BUFFER_SIZE = (1 << 14);
 // The prompt to display in the shell.
 const char *PROMPT = ">> ";
 
+Error print_working_directory() {
+  char buf[1024];
+  getcwd(buf, 1024);
+  puts(buf);
+  return ERROR_NONE;
+}
+
+Error handle_builtin(Builtin builtin) {
+  switch (builtin) {
+  case BUILTIN_PWD: {
+    return print_working_directory();
+  }
+  default:
+    assert(false);
+  }
+  return ERROR_NONE;
+}
+
 void handle_line(char const *line) {
   Lexer lexer = lexer_init(line);
 
@@ -109,7 +129,10 @@ void handle_line(char const *line) {
 
   switch (token.type) {
   case TOKEN_BUILTIN: {
-    puts("builtin");
+    if ((err = handle_builtin(token.data.builtin)) != ERROR_NONE) {
+      printf("Error: %d\n", err);
+      return;
+    }
     break;
   }
   case TOKEN_EOF: {
