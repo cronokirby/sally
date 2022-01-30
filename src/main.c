@@ -4,20 +4,49 @@
 #include "stdbool.h"
 #include "stdint.h"
 #include "stdio.h"
+#include "string.h"
 #include "unistd.h"
 
 typedef enum ErrorType { ERROR_NONE, ERROR_LEXER, ERROR_UNIX } ErrorType;
 
 typedef enum LexerError { LEXER_ERROR_UNKNOWN_INPUT } LexerError;
 
+char const *lexer_error_str(LexerError err) {
+  switch (err) {
+  case LEXER_ERROR_UNKNOWN_INPUT: {
+    return "Lexer: unknown input";
+  }
+  }
+  return "";
+}
+
 typedef union ErrorData {
   LexerError lexer_error;
+  int errnum;
 } ErrorData;
 
 typedef struct Error {
   ErrorType type;
   ErrorData data;
 } Error;
+
+Error error_from_errno(int errnum) {
+  return (Error){ERROR_UNIX, {.errnum = errnum}};
+}
+
+char const *error_str(Error err) {
+  switch (err.type) {
+  case ERROR_NONE: {
+    return "";
+  }
+  case ERROR_LEXER:
+    return lexer_error_str(err.data.lexer_error);
+  case ERROR_UNIX: {
+    return strerror(err.data.errnum);
+  }
+  }
+  return "";
+}
 
 typedef struct CharSlice {
   char const *data;
@@ -132,7 +161,7 @@ void handle_line(char const *line) {
   Token token;
   Error err = lexer_next(&lexer, &token);
   if (err.type != ERROR_NONE) {
-    printf("Error: %d\n", err.type);
+    printf("Error: %s\n", error_str(err));
     return;
   }
 
@@ -140,7 +169,7 @@ void handle_line(char const *line) {
   case TOKEN_BUILTIN: {
     err = handle_builtin(token.data.builtin);
     if (err.type != ERROR_NONE) {
-      printf("Error: %d\n", err.type);
+      printf("Error: %s\n", error_str(err));
       return;
     }
     break;
