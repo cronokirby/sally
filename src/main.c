@@ -1,13 +1,22 @@
 #include "assert.h"
 #include "ctype.h"
+#include "errno.h"
 #include "stdbool.h"
 #include "stdint.h"
 #include "stdio.h"
 #include "unistd.h"
 
-typedef enum Error {
-  ERROR_NONE,
-  ERROR_LEXER_UNKNOWN_INPUT,
+typedef enum ErrorType { ERROR_NONE, ERROR_LEXER, ERROR_UNIX } ErrorType;
+
+typedef enum LexerError { LEXER_ERROR_UNKNOWN_INPUT } LexerError;
+
+typedef union ErrorData {
+  LexerError lexer_error;
+} ErrorData;
+
+typedef struct Error {
+  ErrorType type;
+  ErrorData data;
 } Error;
 
 typedef struct CharSlice {
@@ -86,10 +95,10 @@ Error lexer_next(Lexer *lexer, Token *out) {
         out->type = TOKEN_BUILTIN;
         out->data.builtin = BUILTIN_PWD;
       } else {
-        return ERROR_LEXER_UNKNOWN_INPUT;
+        return (Error){ERROR_LEXER, {.lexer_error = LEXER_ERROR_UNKNOWN_INPUT}};
       }
     }
-    return ERROR_NONE;
+    return (Error){ERROR_NONE};
   }
 }
 
@@ -103,7 +112,7 @@ Error print_working_directory() {
   char buf[1024];
   getcwd(buf, 1024);
   puts(buf);
-  return ERROR_NONE;
+  return (Error){ERROR_NONE};
 }
 
 Error handle_builtin(Builtin builtin) {
@@ -114,7 +123,7 @@ Error handle_builtin(Builtin builtin) {
   default:
     assert(false);
   }
-  return ERROR_NONE;
+  return (Error){ERROR_NONE};
 }
 
 void handle_line(char const *line) {
@@ -122,15 +131,16 @@ void handle_line(char const *line) {
 
   Token token;
   Error err = lexer_next(&lexer, &token);
-  if (err != ERROR_NONE) {
-    printf("Error: %d\n", err);
+  if (err.type != ERROR_NONE) {
+    printf("Error: %d\n", err.type);
     return;
   }
 
   switch (token.type) {
   case TOKEN_BUILTIN: {
-    if ((err = handle_builtin(token.data.builtin)) != ERROR_NONE) {
-      printf("Error: %d\n", err);
+    err = handle_builtin(token.data.builtin);
+    if (err.type != ERROR_NONE) {
+      printf("Error: %d\n", err.type);
       return;
     }
     break;
