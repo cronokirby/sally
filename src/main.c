@@ -139,8 +139,12 @@ const char *PROMPT = ">> ";
 
 Error print_working_directory() {
   char buf[1024];
-  getcwd(buf, 1024);
-  puts(buf);
+  if (getcwd(buf, 1024) == NULL) {
+    return error_from_errno(errno);
+  }
+  if (puts(buf) < 0) {
+    return error_from_errno(errno);
+  }
   return (Error){ERROR_NONE};
 }
 
