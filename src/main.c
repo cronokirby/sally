@@ -200,6 +200,4 @@ int main() {
     }
     handle_line(line_buffer);
   }
-  foo();
-  return 0;
 }
