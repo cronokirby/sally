@@ -24,3 +24,5 @@ char const *error_str(Error err) {
   }
   return "";
 }
+
+extern inline void panic(char const *str);

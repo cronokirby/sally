@@ -1,5 +1,7 @@
 #pragma once
 
+#include "stdio.h"
+#include "stdlib.h"
 #include "string.h"
 
 typedef enum ErrorType { ERROR_NONE, ERROR_LEXER, ERROR_UNIX } ErrorType;
@@ -23,3 +25,12 @@ inline Error error_from_errno(int errnum) {
 }
 
 char const *error_str(Error err);
+
+/// panic exits the program immediately with an error.
+///
+/// The intention is for errors from which no recovery is possible, such as
+/// failures to allocate memory.
+inline void panic(char const *str) {
+  fputs(str, stderr);
+  exit(1);
+}
