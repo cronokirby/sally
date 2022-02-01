@@ -7,6 +7,7 @@
 #include "string.h"
 #include "unistd.h"
 
+#include "include/builtin.h"
 #include "include/error.h"
 
 typedef struct CharSlice {
@@ -25,12 +26,6 @@ int charslice_cmp_str(CharSlice slice, char const *str) {
   }
   return 0;
 }
-
-/// Represents all of the builtin commands we have
-typedef enum Builtin {
-  // A builtin which prints the current directory
-  BUILTIN_PWD
-} Builtin;
 
 typedef enum TokenType {
   /// Represents a builtin command
