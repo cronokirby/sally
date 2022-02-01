@@ -1,6 +1,7 @@
 #include "assert.h"
 #include "ctype.h"
 #include "errno.h"
+#include "error.h"
 #include "stdbool.h"
 #include "stdint.h"
 #include "stdio.h"
@@ -199,4 +200,6 @@ int main() {
     }
     handle_line(line_buffer);
   }
+  foo();
+  return 0;
 }
