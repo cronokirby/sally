@@ -1,53 +1,13 @@
 #include "assert.h"
 #include "ctype.h"
 #include "errno.h"
-#include "error.h"
 #include "stdbool.h"
 #include "stdint.h"
 #include "stdio.h"
 #include "string.h"
 #include "unistd.h"
 
-typedef enum ErrorType { ERROR_NONE, ERROR_LEXER, ERROR_UNIX } ErrorType;
-
-typedef enum LexerError { LEXER_ERROR_UNKNOWN_INPUT } LexerError;
-
-char const *lexer_error_str(LexerError err) {
-  switch (err) {
-  case LEXER_ERROR_UNKNOWN_INPUT: {
-    return "Lexer: unknown input";
-  }
-  }
-  return "";
-}
-
-typedef union ErrorData {
-  LexerError lexer_error;
-  int errnum;
-} ErrorData;
-
-typedef struct Error {
-  ErrorType type;
-  ErrorData data;
-} Error;
-
-Error error_from_errno(int errnum) {
-  return (Error){ERROR_UNIX, {.errnum = errnum}};
-}
-
-char const *error_str(Error err) {
-  switch (err.type) {
-  case ERROR_NONE: {
-    return "";
-  }
-  case ERROR_LEXER:
-    return lexer_error_str(err.data.lexer_error);
-  case ERROR_UNIX: {
-    return strerror(err.data.errnum);
-  }
-  }
-  return "";
-}
+#include "include/error.h"
 
 typedef struct CharSlice {
   char const *data;
