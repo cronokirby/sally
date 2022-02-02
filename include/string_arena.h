@@ -11,7 +11,7 @@ typedef struct StringSlice {
 } StringSlice;
 
 /// Compare a string slice with a null-terminated string.
-int stringslice_cmp_str(StringSlice slice, char const *str) {
+inline int stringslice_cmp_str(StringSlice slice, char const *str) {
   for (size_t i = 0; i < slice.len && str[i] != 0; ++i) {
     if (slice.data[i] > str[i]) {
       return 1;

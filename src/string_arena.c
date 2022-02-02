@@ -5,6 +5,9 @@
 #include "include/error.h"
 #include "include/string_arena.h"
 
+
+extern inline int stringslice_cmp_str(StringSlice slice, char const *str);
+
 struct StringArena {
   char *buffer;
   size_t start;
