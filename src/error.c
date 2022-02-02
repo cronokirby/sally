@@ -9,6 +9,15 @@ char const *lexer_error_str(LexerError err) {
   return "";
 }
 
+char const *parser_error_Str(ParserError err) {
+  switch (err) {
+  case PARSER_ERROR_UNEXPECTED_TOKEN: {
+    return "Parser: unexpected token";
+  }
+  }
+  return "";
+}
+
 extern inline Error error_from_errno(int errnum);
 
 char const *error_str(Error err) {

@@ -4,14 +4,24 @@
 #include "stdlib.h"
 #include "string.h"
 
-typedef enum ErrorType { ERROR_NONE, ERROR_LEXER, ERROR_UNIX } ErrorType;
+typedef enum ErrorType {
+  ERROR_NONE,
+  ERROR_LEXER,
+  ERROR_PARSER,
+  ERROR_UNIX
+} ErrorType;
 
 typedef enum LexerError { LEXER_ERROR_UNKNOWN_INPUT } LexerError;
 
 char const *lexer_error_str(LexerError err);
 
+typedef enum ParserError { PARSER_ERROR_UNEXPECTED_TOKEN } ParserError;
+
+char const *parser_error_Str(ParserError err);
+
 typedef union ErrorData {
   LexerError lexer_error;
+  ParserError parser_error;
   int errnum;
 } ErrorData;
 
