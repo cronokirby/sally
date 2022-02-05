@@ -40,7 +40,12 @@ void ast_free(ASTNode *node);
 typedef struct Parser Parser;
 
 /// Initialize a parser, with a given lexer.
-void parser_init(Parser *parser, Lexer *lexer);
+///
+/// The result can be freed with `parser_free`.
+Parser* parser_init(Lexer *lexer);
+
+/// This frees the data inside parser, and the memory of parser as well;
+void parser_free(Parser* parser);
 
 /// Parse data, producing a full AST.
 Error parser_parse(Parser *parser, ASTNode *out);

@@ -2,11 +2,12 @@
 #include "errno.h"
 #include "stdbool.h"
 #include "stdio.h"
-#include "unistd.h"
 
 #include "include/builtin.h"
 #include "include/error.h"
+#include "include/interpreter.h"
 #include "include/lexer.h"
+#include "include/parser.h"
 
 /// The number of bytes in our line buffer.
 const size_t LINE_BUFFER_SIZE = (1 << 14);
@@ -14,56 +15,30 @@ const size_t LINE_BUFFER_SIZE = (1 << 14);
 // The prompt to display in the shell.
 const char *PROMPT = ">> ";
 
-Error print_working_directory() {
-  char buf[1024];
-  if (getcwd(buf, 1024) == NULL) {
-    return error_from_errno(errno);
-  }
-  if (puts(buf) < 0) {
-    return error_from_errno(errno);
-  }
-  return (Error){ERROR_NONE};
-}
+Error handle_line(Interpreter *interpreter, char const *line) {
+  interpreter_reset(interpreter);
 
-Error handle_builtin(Builtin builtin) {
-  switch (builtin) {
-  case BUILTIN_PWD: {
-    return print_working_directory();
-  }
-  default:
-    assert(false);
-  }
-  return (Error){ERROR_NONE};
-}
+  Error error = (Error){ERROR_NONE};
 
-void handle_line(char const *line) {
   Lexer lexer = lexer_init(line);
+  Parser *parser = parser_init(&lexer);
 
-  Token token;
-  Error err = lexer_next(&lexer, &token);
-  if (err.type != ERROR_NONE) {
-    printf("Error: %s\n", error_str(err));
-    return;
+  ASTNode node;
+  error = parser_parse(parser, &node);
+  if (error.type != ERROR_NONE) {
+    goto err;
   }
 
-  switch (token.type) {
-  case TOKEN_BUILTIN: {
-    err = handle_builtin(token.data.builtin);
-    if (err.type != ERROR_NONE) {
-      printf("Error: %s\n", error_str(err));
-      return;
-    }
-    break;
-  }
-  case TOKEN_EOF: {
-    puts("eof");
-    break;
-  }
-  }
+  error = interpreter_run(interpreter, &node);
+
+err:
+  free(parser);
+  return error;
 }
 
 int main() {
   char line_buffer[LINE_BUFFER_SIZE];
+  Interpreter *interpreter = interpreter_init();
 
   for (;;) {
     fputs(PROMPT, stdout);
@@ -74,6 +49,12 @@ int main() {
       perror("Error reading line:");
       continue;
     }
-    handle_line(line_buffer);
+    Error error = handle_line(interpreter, line_buffer);
+    if (error.type != ERROR_NONE) {
+      fputs(error_str(error), stderr);
+      fputc('\n', stderr);
+    }
   }
+
+  interpreter_free(interpreter);
 }

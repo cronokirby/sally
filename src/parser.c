@@ -19,14 +19,23 @@ struct Parser {
   Token prev;
 };
 
-void parser_init(Parser *parser, Lexer *lexer) {
-  parser->lexer = lexer;
-  parser->has_peek = false;
+Parser *parser_init(Lexer *lexer) {
+  Parser *out = malloc(sizeof(Parser));
+  if (out == NULL) {
+    panic("parser_init: failed to allocate memory");
+  }
+  out->lexer = lexer;
+  out->has_peek = false;
+  return out;
+}
+
+void parser_free(Parser *parser) {
+  free(parser);
 }
 
 Error parse_peek(Parser *parser, Token *out) {
   if (!parser->has_peek) {
-    Error err = lexer_next(&parser->lexer, &parser->peek);
+    Error err = lexer_next(parser->lexer, &parser->peek);
     if (err.type != ERROR_NONE) {
       return err;
     }

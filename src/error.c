@@ -27,6 +27,8 @@ char const *error_str(Error err) {
   }
   case ERROR_LEXER:
     return lexer_error_str(err.data.lexer_error);
+  case ERROR_PARSER:
+    return parser_error_Str(err.data.parser_error);
   case ERROR_UNIX: {
     return strerror(err.data.errnum);
   }
