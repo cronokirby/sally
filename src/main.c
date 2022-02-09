@@ -4,6 +4,7 @@
 #include "stdio.h"
 
 #include "include/builtin.h"
+#include "include/compiler.h"
 #include "include/error.h"
 #include "include/interpreter.h"
 #include "include/lexer.h"
@@ -15,7 +16,8 @@ const size_t LINE_BUFFER_SIZE = (1 << 14);
 // The prompt to display in the shell.
 const char *PROMPT = ">> ";
 
-Error handle_line(Interpreter *interpreter, char const *line) {
+Error handle_line(Interpreter *interpreter, OpBuffer *op_buffer,
+                  char const *line) {
   interpreter_reset(interpreter);
 
   Error error = (Error){ERROR_NONE};
@@ -29,7 +31,12 @@ Error handle_line(Interpreter *interpreter, char const *line) {
     goto err;
   }
 
-  error = interpreter_run(interpreter, &node);
+  error = compile(&node, op_buffer);
+  if (error.type != ERROR_NONE) {
+    goto err;
+  }
+
+  error = interpreter_run(interpreter, op_buffer);
 
 err:
   parser_free(parser);
@@ -39,6 +46,7 @@ err:
 int main() {
   char line_buffer[LINE_BUFFER_SIZE];
   Interpreter *interpreter = interpreter_init();
+  OpBuffer *op_buffer = op_buffer_init();
 
   for (;;) {
     fputs(PROMPT, stdout);
@@ -49,7 +57,7 @@ int main() {
       perror("Error reading line:");
       continue;
     }
-    Error error = handle_line(interpreter, line_buffer);
+    Error error = handle_line(interpreter, op_buffer, line_buffer);
     if (error.type != ERROR_NONE) {
       fputs(error_str(error), stderr);
       fputc('\n', stderr);
@@ -57,4 +65,5 @@ int main() {
   }
 
   interpreter_free(interpreter);
+  op_buffer_free(op_buffer);
 }

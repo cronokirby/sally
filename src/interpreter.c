@@ -39,11 +39,21 @@ Error interpreter_builtin(Interpreter *interpreter __attribute__((unused)),
   return (Error){ERROR_NONE};
 }
 
-Error interpreter_run(Interpreter *interpreter, ASTNode *node) {
-  switch (node->type) {
-  case AST_BUILTIN: {
-    return interpreter_builtin(interpreter, node->builtin);
+Error interpreter_op(Interpreter *interpreter, Op op) {
+  switch (op.type) {
+  case OP_BUILTIN: {
+    return interpreter_builtin(interpreter, op.data.builtin);
   }
+  }
+  return (Error){ERROR_NONE};
+}
+
+Error interpreter_run(Interpreter *interpreter, OpBuffer *buf) {
+  for (size_t i = 0; i < buf->len; ++i) {
+    Error err = interpreter_op(interpreter, buf->ops[i]);
+    if (err.type != ERROR_NONE) {
+      return err;
+    }
   }
   return (Error){ERROR_NONE};
 }
