@@ -32,7 +32,7 @@ Error handle_line(Interpreter *interpreter, char const *line) {
   error = interpreter_run(interpreter, &node);
 
 err:
-  free(parser);
+  parser_free(parser);
   return error;
 }
 
