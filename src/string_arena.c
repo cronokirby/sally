@@ -5,7 +5,6 @@
 #include "include/error.h"
 #include "include/string_arena.h"
 
-
 extern inline int stringslice_cmp_str(StringSlice slice, char const *str);
 
 struct StringArena {
@@ -16,13 +15,19 @@ struct StringArena {
 
 const size_t STRING_ARENA_DEFAULT_SIZE = 1 << 14;
 
-void string_arena_init(StringArena *arena) {
+StringArena *string_arena_init() {
+  StringArena *arena = malloc(sizeof(StringArena));
+  if (arena == NULL) {
+    panic("string_arena_init: failed to allocate memory");
+  }
   arena->buffer = malloc(STRING_ARENA_DEFAULT_SIZE);
   if (arena->buffer == NULL) {
     panic("Fatal: Failed to allocate memory");
   }
   arena->start = 0;
   arena->size = STRING_ARENA_DEFAULT_SIZE;
+
+  return arena;
 }
 
 void string_arena_free(StringArena *arena) {

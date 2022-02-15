@@ -2,24 +2,7 @@
 
 #include "include/lexer.h"
 
-typedef struct CharSlice {
-  char const *data;
-  size_t len;
-} CharSlice;
-
-int charslice_cmp_str(CharSlice slice, char const *str) {
-  for (size_t i = 0; i < slice.len && str[i] != 0; ++i) {
-    if (slice.data[i] > str[i]) {
-      return 1;
-    }
-    if (slice.data[i] < str[i]) {
-      return -1;
-    }
-  }
-  return 0;
-}
-
-extern Lexer lexer_init(char const *input);
+extern Lexer lexer_init(char const *input, StringArena *arena);
 
 Error lexer_next(Lexer *lexer, Token *out) {
   out->type = TOKEN_EOF;
@@ -38,13 +21,18 @@ Error lexer_next(Lexer *lexer, Token *out) {
       }
       size_t len = lexer->index - start;
 
-      CharSlice slice = {.data = lexer->input + start, .len = len};
+      StringSlice slice = {.data = lexer->input + start, .len = len};
 
-      if (charslice_cmp_str(slice, "pwd") == 0) {
+      if (stringslice_cmp_str(slice, "pwd") == 0) {
         out->type = TOKEN_BUILTIN;
         out->data.builtin = BUILTIN_PWD;
+      } else if (stringslice_cmp_str(slice, "cd") == 0) {
+        out->type = TOKEN_BUILTIN;
+        out->data.builtin = BUILTIN_CD;
       } else {
-        return (Error){ERROR_LEXER, {.lexer_error = LEXER_ERROR_UNKNOWN_INPUT}};
+        StringHandle handle = string_arena_alloc(lexer->arena, slice);
+        out->type = TOKEN_WORD;
+        out->data.string = handle;
       }
     }
     return (Error){ERROR_NONE};

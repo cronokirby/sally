@@ -3,13 +3,20 @@
 #include "include/builtin.h"
 #include "include/error.h"
 #include "include/parser.h"
+#include "include/string_arena.h"
 
 /// The different kinds of operations in our bytecode.
-typedef enum OpType { OP_BUILTIN } OpType;
+typedef enum OpType {
+  /// A builtin operation.
+  OP_BUILTIN,
+  /// Push a string onto the stack
+  OP_STRING
+} OpType;
 
 /// The variants of data held in a bytecode operation.
 typedef union OpData {
   Builtin builtin;
+  StringHandle string;
 } OpData;
 
 /// Represents a single operation in our bytecode.

@@ -12,6 +12,8 @@ void ast_free(ASTNode *node) {
   }
 }
 
+const size_t DEFAULT_CHILD_COUNT = 4;
+
 struct Parser {
   Lexer *lexer;
   Token peek;
@@ -74,7 +76,22 @@ Error parse_consume(Parser *parser, TokenType type) {
   return (Error){ERROR_NONE};
 }
 
+Error parse_arg(Parser *parser, ASTNode *out) {
+  Error err = parse_consume(parser, TOKEN_WORD);
+  if (err.type != ERROR_NONE) {
+    return err;
+  }
+  out->type = AST_ARG;
+  out->count = 0;
+  out->data.string = parser->prev.data.string;
+
+  return (Error){ERROR_NONE};
+}
+
 Error parser_parse(Parser *parser, ASTNode *out) {
+  // Just initialize this so that the node can be freed even if we error.
+  out->count = 0;
+
   Error err = parse_consume(parser, TOKEN_BUILTIN);
   if (err.type != ERROR_NONE) {
     return err;
@@ -83,6 +100,31 @@ Error parser_parse(Parser *parser, ASTNode *out) {
   out->type = AST_BUILTIN;
   out->count = 0;
   out->builtin = parser->prev.data.builtin;
+  size_t capacity = DEFAULT_CHILD_COUNT;
+  out->data.children = malloc(capacity * sizeof(ASTNode));
+
+  // Parse a list of arguments until we see EOF.
+  bool is_eof;
+  for (;;) {
+    err = parse_check(parser, TOKEN_EOF, &is_eof);
+    if (err.type != ERROR_NONE) {
+      return err;
+    }
+    if (is_eof) {
+      break;
+    }
+    size_t next_count = out->count + 1;
+    if (next_count > capacity) {
+      capacity *= 2;
+      out->data.children =
+          realloc(out->data.children, capacity * sizeof(ASTNode));
+    }
+    err = parse_arg(parser, out->data.children + out->count);
+    if (err.type != ERROR_NONE) {
+      return err;
+    }
+    out->count = next_count;
+  }
 
   return (Error){ERROR_NONE};
 }

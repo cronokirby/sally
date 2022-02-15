@@ -18,11 +18,13 @@ const char *PROMPT = ">> ";
 
 Error handle_line(Interpreter *interpreter, OpBuffer *op_buffer,
                   char const *line) {
+  StringArena *arena = string_arena_init();
+
   interpreter_reset(interpreter);
 
   Error error = (Error){ERROR_NONE};
 
-  Lexer lexer = lexer_init(line);
+  Lexer lexer = lexer_init(line, arena);
   Parser *parser = parser_init(&lexer);
 
   ASTNode node;
@@ -39,6 +41,8 @@ Error handle_line(Interpreter *interpreter, OpBuffer *op_buffer,
   error = interpreter_run(interpreter, op_buffer);
 
 err:
+  ast_free(&node);
+  string_arena_free(arena);
   parser_free(parser);
   return error;
 }
@@ -57,6 +61,7 @@ int main() {
       perror("Error reading line:");
       continue;
     }
+    op_buffer_reset(op_buffer);
     Error error = handle_line(interpreter, op_buffer, line_buffer);
     if (error.type != ERROR_NONE) {
       fputs(error_str(error), stderr);

@@ -8,7 +8,12 @@
 #include "include/string_arena.h"
 
 /// Represents one of the variants in our AST.
-typedef enum ASTType { AST_BUILTIN } ASTType;
+typedef enum ASTType {
+  /// Represents a builtin command for our shell.
+  AST_BUILTIN,
+  /// Represent an individual argument for some command.
+  AST_ARG
+} ASTType;
 
 /// Represents one of the nodes in our AST.
 typedef struct ASTNode ASTNode;
@@ -42,10 +47,10 @@ typedef struct Parser Parser;
 /// Initialize a parser, with a given lexer.
 ///
 /// The result can be freed with `parser_free`.
-Parser* parser_init(Lexer *lexer);
+Parser *parser_init(Lexer *lexer);
 
 /// This frees the data inside parser, and the memory of parser as well;
-void parser_free(Parser* parser);
+void parser_free(Parser *parser);
 
 /// Parse data, producing a full AST.
 Error parser_parse(Parser *parser, ASTNode *out);

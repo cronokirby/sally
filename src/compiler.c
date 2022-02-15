@@ -1,3 +1,5 @@
+#include "sys/types.h"
+
 #include "include/compiler.h"
 
 void op_buffer_push(OpBuffer *buf, Op op) {
@@ -39,15 +41,28 @@ void op_buffer_free(OpBuffer *buf) {
   free(buf);
 }
 
-Error compile(ASTNode *input, OpBuffer *out) {
-  op_buffer_init(out);
-
+Error handle_node(ASTNode *input, OpBuffer *out) {
   switch (input->type) {
   case AST_BUILTIN: {
+    for (ssize_t i = input->count - 1; i >= 0; i--) {
+      Error err = handle_node(input->data.children + i, out);
+      if (err.type != ERROR_NONE) {
+        return err;
+      }
+    }
     op_buffer_push(out, (Op){OP_BUILTIN, {.builtin = input->builtin}});
     break;
   }
+  case AST_ARG: {
+    op_buffer_push(out, (Op){OP_STRING, {.string = input->data.string}});
+    break;
   }
-
+  }
   return (Error){ERROR_NONE};
+}
+
+Error compile(ASTNode *input, OpBuffer *out) {
+  op_buffer_init(out);
+
+  return handle_node(input, out);
 }

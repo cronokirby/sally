@@ -35,6 +35,9 @@ Error interpreter_builtin(Interpreter *interpreter __attribute__((unused)),
   case BUILTIN_PWD: {
     return print_working_directory();
   }
+  case BUILTIN_CD: {
+    return (Error){ERROR_NONE};
+  }
   }
   return (Error){ERROR_NONE};
 }
@@ -44,12 +47,17 @@ Error interpreter_op(Interpreter *interpreter, Op op) {
   case OP_BUILTIN: {
     return interpreter_builtin(interpreter, op.data.builtin);
   }
+  case OP_STRING: {
+    puts("STRING");
+    break;
+  }
   }
   return (Error){ERROR_NONE};
 }
 
 Error interpreter_run(Interpreter *interpreter, OpBuffer *buf) {
   for (size_t i = 0; i < buf->len; ++i) {
+    printf("%ld %d\n", i, buf->ops[i].type);
     Error err = interpreter_op(interpreter, buf->ops[i]);
     if (err.type != ERROR_NONE) {
       return err;

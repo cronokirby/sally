@@ -35,7 +35,7 @@ typedef size_t StringHandle;
 typedef struct StringArena StringArena;
 
 /// Initialize a string arena.
-void string_arena_init(StringArena *arena);
+StringArena* string_arena_init();
 
 /// Free the memory of a string arena, including the arena itself.
 void string_arena_free(StringArena *arena);
