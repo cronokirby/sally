@@ -37,6 +37,9 @@ typedef struct StringArena StringArena;
 /// Initialize a string arena.
 void string_arena_init(StringArena *arena);
 
+/// Free the memory of a string arena, including the arena itself.
+void string_arena_free(StringArena *arena);
+
 /// Allocate a new slice permanently in the arena.
 ///
 /// This returns a handle, which can be exchanged for a short-lived C string

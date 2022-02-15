@@ -27,6 +27,7 @@ void string_arena_init(StringArena *arena) {
 
 void string_arena_free(StringArena *arena) {
   free(arena->buffer);
+  free(arena);
 }
 
 void string_arena_resize(StringArena *arena, size_t min) {
