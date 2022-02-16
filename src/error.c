@@ -9,10 +9,19 @@ char const *lexer_error_str(LexerError err) {
   return "";
 }
 
-char const *parser_error_Str(ParserError err) {
+char const *parser_error_str(ParserError err) {
   switch (err) {
   case PARSER_ERROR_UNEXPECTED_TOKEN: {
     return "Parser: unexpected token";
+  }
+  }
+  return "";
+}
+
+char const *interpreter_error_str(InterpreterError err) {
+  switch (err) {
+  case INTERPRETER_ERROR_EMPTY_STACK: {
+    return "Interpreter: empty stack";
   }
   }
   return "";
@@ -28,7 +37,9 @@ char const *error_str(Error err) {
   case ERROR_LEXER:
     return lexer_error_str(err.data.lexer_error);
   case ERROR_PARSER:
-    return parser_error_Str(err.data.parser_error);
+    return parser_error_str(err.data.parser_error);
+  case ERROR_INTERPRETER:
+    return interpreter_error_str(err.data.intepreter_error);
   case ERROR_UNIX: {
     return strerror(err.data.errnum);
   }

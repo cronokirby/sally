@@ -8,6 +8,7 @@ typedef enum ErrorType {
   ERROR_NONE,
   ERROR_LEXER,
   ERROR_PARSER,
+  ERROR_INTERPRETER,
   ERROR_UNIX
 } ErrorType;
 
@@ -17,11 +18,18 @@ char const *lexer_error_str(LexerError err);
 
 typedef enum ParserError { PARSER_ERROR_UNEXPECTED_TOKEN } ParserError;
 
-char const *parser_error_Str(ParserError err);
+char const *parser_error_str(ParserError err);
+
+typedef enum InterpreterError {
+  INTERPRETER_ERROR_EMPTY_STACK
+} InterpreterError;
+
+char const *interpreter_error_str(InterpreterError err);
 
 typedef union ErrorData {
   LexerError lexer_error;
   ParserError parser_error;
+  InterpreterError intepreter_error;
   int errnum;
 } ErrorData;
 

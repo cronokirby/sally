@@ -37,6 +37,9 @@ typedef struct StringArena StringArena;
 /// Initialize a string arena.
 StringArena* string_arena_init();
 
+/// Reset the state of the string arena.
+void string_arena_reset(StringArena *arena);
+
 /// Free the memory of a string arena, including the arena itself.
 void string_arena_free(StringArena *arena);
 

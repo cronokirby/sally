@@ -30,6 +30,10 @@ StringArena *string_arena_init() {
   return arena;
 }
 
+void string_arena_reset(StringArena *arena) {
+  arena->start = 0;
+}
+
 void string_arena_free(StringArena *arena) {
   free(arena->buffer);
   free(arena);

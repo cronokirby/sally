@@ -3,6 +3,7 @@
 #include "include/compiler.h"
 #include "include/error.h"
 #include "include/parser.h"
+#include "include/string_arena.h"
 
 /// Represents an interpreter running shell programs.
 typedef struct Interpreter Interpreter;
@@ -10,7 +11,7 @@ typedef struct Interpreter Interpreter;
 /// Initialize a new interpreter.
 ///
 /// The result can be freed with interpreter_free()
-Interpreter *interpreter_init();
+Interpreter *interpreter_init(StringArena *arena);
 
 /// Free the memory of this interpreter, and the data inside.
 void interpreter_free(Interpreter *interpreter);

@@ -114,7 +114,7 @@ Error parser_parse(Parser *parser, ASTNode *out) {
       break;
     }
     size_t next_count = out->count + 1;
-    if (next_count > capacity) {
+    while (next_count > capacity) {
       capacity *= 2;
       out->data.children =
           realloc(out->data.children, capacity * sizeof(ASTNode));
