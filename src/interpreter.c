@@ -60,6 +60,10 @@ Error launch_and_wait(char const *name, char *const *argv) {
     if (wait(&pid) == -1) {
       return error_from_errno(errno);
     }
+    // Clear out any remaining output from the child process
+    if (fflush(stdout) < -1) {
+      return error_from_errno(errno);
+    }
   }
   return (Error){ERROR_NONE};
 }
