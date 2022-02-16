@@ -44,6 +44,10 @@ StringStack *string_stack_init() {
   return out;
 }
 
+void string_stack_reset(StringStack *stack) {
+  stack->head = 0;
+}
+
 void string_stack_free(StringStack *stack) {
   free(stack->buf);
   free(stack);
@@ -129,4 +133,5 @@ Error interpreter_run(Interpreter *interpreter, OpBuffer *buf) {
 }
 
 void interpreter_reset(Interpreter *interpreter __attribute__((unused))) {
+  string_stack_reset(interpreter->string_stack);
 }
