@@ -1,4 +1,7 @@
 #include "errno.h"
+#include "fcntl.h"
+#include "sys/types.h"
+#include "sys/wait.h"
 #include "unistd.h"
 
 #include "include/builtin.h"
@@ -18,6 +21,45 @@ Error print_working_directory() {
 Error change_directory(char *dir) {
   if (chdir(dir) < 0) {
     return error_from_errno(errno);
+  }
+  return (Error){ERROR_NONE};
+}
+
+Error launch_and_wait(char const *name, char *const *argv) {
+  int err_pipe[2];
+  if (pipe(err_pipe) == -1) {
+    return error_from_errno(errno);
+  }
+  if (fcntl(err_pipe[1], F_SETFD, fcntl(err_pipe[1], F_GETFD) | FD_CLOEXEC) ==
+      -1) {
+    return error_from_errno(errno);
+  }
+  pid_t pid = fork();
+  if (pid == -1) {
+    return error_from_errno(errno);
+  }
+  if (pid == 0) {
+    close(err_pipe[0]);
+    if (execvp(name, argv) == -1) {
+      write(err_pipe[1], &errno, sizeof(int));
+      exit(EXIT_FAILURE);
+    }
+  } else {
+    close(err_pipe[1]);
+    int exec_err;
+    int count;
+    for (count = -1; count == -1;
+         count = read(err_pipe[0], &exec_err, sizeof(int))) {
+      if (errno == EAGAIN || errno == EINTR) {
+        continue;
+      }
+    }
+    if (count) {
+      return error_from_errno(exec_err);
+    }
+    if (wait(&pid) == -1) {
+      return error_from_errno(errno);
+    }
   }
   return (Error){ERROR_NONE};
 }
@@ -73,6 +115,9 @@ void string_stack_push(StringStack *stack, StringHandle string) {
 struct Interpreter {
   StringArena *arena;
   StringStack *string_stack;
+
+  char **argv_buf;
+  size_t argv_buf_capacity;
 };
 
 Interpreter *interpreter_init(StringArena *arena) {
@@ -82,11 +127,14 @@ Interpreter *interpreter_init(StringArena *arena) {
   }
   out->arena = arena;
   out->string_stack = string_stack_init();
+  out->argv_buf = NULL;
+  out->argv_buf_capacity = 0;
   return out;
 }
 
 void interpreter_free(Interpreter *interpreter) {
   string_stack_free(interpreter->string_stack);
+  free(interpreter->argv_buf);
   free(interpreter);
 }
 
@@ -109,10 +157,20 @@ Error interpreter_builtin(Interpreter *interpreter __attribute__((unused)),
   return (Error){ERROR_NONE};
 }
 
-Error interpreter_command(Interpreter *interpreter __attribute__ ((unused)), char const *name,
-                          size_t arg_count) {
-  printf("command %s %lu\n", name, arg_count);
-  return (Error){ERROR_NONE};
+Error interpreter_command(Interpreter *interpreter __attribute__((unused)),
+                          char *name, size_t arg_count) {
+  if (arg_count + 2 > interpreter->argv_buf_capacity) {
+    interpreter->argv_buf_capacity *= 2;
+    interpreter->argv_buf =
+        realloc(interpreter->argv_buf, (arg_count + 2) * sizeof(char *));
+  }
+  interpreter->argv_buf[0] = name;
+  for (size_t i = 1; i < arg_count + 1; ++i) {
+    StringHandle handle = string_stack_pop(interpreter->string_stack);
+    interpreter->argv_buf[i] = string_arena_get_str(interpreter->arena, handle);
+  }
+  interpreter->argv_buf[arg_count + 1] = NULL;
+  return launch_and_wait(name, interpreter->argv_buf);
 }
 
 Error interpreter_op(Interpreter *interpreter, Op op) {
@@ -125,8 +183,7 @@ Error interpreter_op(Interpreter *interpreter, Op op) {
     break;
   }
   case OP_COMMAND: {
-    char const *name =
-        string_arena_get_str(interpreter->arena, op.data.command.name);
+    char *name = string_arena_get_str(interpreter->arena, op.data.command.name);
     return interpreter_command(interpreter, name, op.data.command.arg_count);
   }
   }
