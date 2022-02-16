@@ -26,6 +26,10 @@ Error change_directory(char *dir) {
 }
 
 Error launch_and_wait(char const *name, char *const *argv) {
+  if (fflush(stdout) == -1) {
+    return error_from_errno(errno);
+  }
+
   int err_pipe[2];
   if (pipe(err_pipe) == -1) {
     return error_from_errno(errno);
@@ -42,7 +46,8 @@ Error launch_and_wait(char const *name, char *const *argv) {
     close(err_pipe[0]);
     if (execvp(name, argv) == -1) {
       write(err_pipe[1], &errno, sizeof(int));
-      exit(EXIT_FAILURE);
+      close(err_pipe[1]);
+      abort();
     }
   } else {
     close(err_pipe[1]);
@@ -54,15 +59,12 @@ Error launch_and_wait(char const *name, char *const *argv) {
         continue;
       }
     }
-    if (count) {
-      return error_from_errno(exec_err);
-    }
+    close(err_pipe[0]);
     if (wait(&pid) == -1) {
       return error_from_errno(errno);
     }
-    // Clear out any remaining output from the child process
-    if (fflush(stdout) < -1) {
-      return error_from_errno(errno);
+    if (count > 0) {
+      return error_from_errno(exec_err);
     }
   }
   return (Error){ERROR_NONE};
