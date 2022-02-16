@@ -5,10 +5,10 @@
 
 void ast_free(ASTNode *node) {
   for (size_t i = 0; i < node->count; i++) {
-    ast_free(node->data.children + i);
+    ast_free(node->children + i);
   }
   if (node->count > 0) {
-    free(node->data.children);
+    free(node->children);
   }
 }
 
@@ -88,20 +88,38 @@ Error parse_arg(Parser *parser, ASTNode *out) {
   return (Error){ERROR_NONE};
 }
 
-Error parser_parse(Parser *parser, ASTNode *out) {
-  // Just initialize this so that the node can be freed even if we error.
-  out->count = 0;
+Error parse_command(Parser *parser, ASTNode *out) {
+  Error err;
 
-  Error err = parse_consume(parser, TOKEN_BUILTIN);
-  if (err.type != ERROR_NONE) {
+  Token peek;
+  if ((err = parse_peek(parser, &peek)).type != ERROR_NONE) {
     return err;
   }
 
-  out->type = AST_BUILTIN;
+  switch (peek.type) {
+  case TOKEN_BUILTIN: {
+    parse_advance(parser);
+
+    out->type = AST_BUILTIN;
+    out->builtin = peek.data.builtin;
+    break;
+  }
+  case TOKEN_WORD: {
+    parse_advance(parser);
+
+    out->type = AST_COMMAND;
+    out->data.string = peek.data.string;
+    break;
+  }
+  default: {
+    return (Error){ERROR_PARSER,
+                   {.parser_error = PARSER_ERROR_UNEXPECTED_TOKEN}};
+  }
+  }
+
   out->count = 0;
-  out->builtin = parser->prev.data.builtin;
   size_t capacity = DEFAULT_CHILD_COUNT;
-  out->data.children = malloc(capacity * sizeof(ASTNode));
+  out->children = malloc(capacity * sizeof(ASTNode));
 
   // Parse a list of arguments until we see EOF.
   bool is_eof;
@@ -116,10 +134,9 @@ Error parser_parse(Parser *parser, ASTNode *out) {
     size_t next_count = out->count + 1;
     while (next_count > capacity) {
       capacity *= 2;
-      out->data.children =
-          realloc(out->data.children, capacity * sizeof(ASTNode));
+      out->children = realloc(out->children, capacity * sizeof(ASTNode));
     }
-    err = parse_arg(parser, out->data.children + out->count);
+    err = parse_arg(parser, out->children + out->count);
     if (err.type != ERROR_NONE) {
       return err;
     }
@@ -127,4 +144,10 @@ Error parser_parse(Parser *parser, ASTNode *out) {
   }
 
   return (Error){ERROR_NONE};
+}
+
+Error parser_parse(Parser *parser, ASTNode *out) {
+  // Just initialize this so that the node can be freed even if we error.
+  out->count = 0;
+  return parse_command(parser, out);
 }

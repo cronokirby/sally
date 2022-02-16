@@ -109,6 +109,12 @@ Error interpreter_builtin(Interpreter *interpreter __attribute__((unused)),
   return (Error){ERROR_NONE};
 }
 
+Error interpreter_command(Interpreter *interpreter __attribute__ ((unused)), char const *name,
+                          size_t arg_count) {
+  printf("command %s %lu\n", name, arg_count);
+  return (Error){ERROR_NONE};
+}
+
 Error interpreter_op(Interpreter *interpreter, Op op) {
   switch (op.type) {
   case OP_BUILTIN: {
@@ -117,6 +123,11 @@ Error interpreter_op(Interpreter *interpreter, Op op) {
   case OP_STRING: {
     string_stack_push(interpreter->string_stack, op.data.string);
     break;
+  }
+  case OP_COMMAND: {
+    char const *name =
+        string_arena_get_str(interpreter->arena, op.data.command.name);
+    return interpreter_command(interpreter, name, op.data.command.arg_count);
   }
   }
   return (Error){ERROR_NONE};
@@ -132,6 +143,6 @@ Error interpreter_run(Interpreter *interpreter, OpBuffer *buf) {
   return (Error){ERROR_NONE};
 }
 
-void interpreter_reset(Interpreter *interpreter __attribute__((unused))) {
+void interpreter_reset(Interpreter *interpreter) {
   string_stack_reset(interpreter->string_stack);
 }

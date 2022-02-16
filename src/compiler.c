@@ -45,12 +45,24 @@ Error handle_node(ASTNode *input, OpBuffer *out) {
   switch (input->type) {
   case AST_BUILTIN: {
     for (ssize_t i = input->count - 1; i >= 0; i--) {
-      Error err = handle_node(input->data.children + i, out);
+      Error err = handle_node(input->children + i, out);
       if (err.type != ERROR_NONE) {
         return err;
       }
     }
     op_buffer_push(out, (Op){OP_BUILTIN, {.builtin = input->builtin}});
+    break;
+  }
+  case AST_COMMAND: {
+    for (ssize_t i = input->count - 1; i >= 0; i--) {
+      Error err = handle_node(input->children + i, out);
+      if (err.type != ERROR_NONE) {
+        return err;
+      }
+    }
+    op_buffer_push(out, (Op){OP_COMMAND,
+                             {.command = {.name = input->data.string,
+                                          .arg_count = input->count}}});
     break;
   }
   case AST_ARG: {

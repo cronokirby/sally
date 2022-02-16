@@ -9,13 +9,22 @@
 typedef enum OpType {
   /// A builtin operation.
   OP_BUILTIN,
+  /// A custom command.
+  OP_COMMAND,
   /// Push a string onto the stack
   OP_STRING
 } OpType;
 
+/// The data we have for a command operation.
+typedef struct OpDataCommand {
+  StringHandle name;
+  size_t arg_count;
+} OpDataCommand;
+
 /// The variants of data held in a bytecode operation.
 typedef union OpData {
   Builtin builtin;
+  OpDataCommand command;
   StringHandle string;
 } OpData;
 

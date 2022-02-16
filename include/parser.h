@@ -11,6 +11,8 @@
 typedef enum ASTType {
   /// Represents a builtin command for our shell.
   AST_BUILTIN,
+  /// Represents an arbitrary command that isn't builtin.
+  AST_COMMAND,
   /// Represent an individual argument for some command.
   AST_ARG
 } ASTType;
@@ -21,7 +23,6 @@ typedef struct ASTNode ASTNode;
 /// Represents one of the kinds of data our AST can handle.
 typedef union ASTData {
   StringHandle string;
-  ASTNode *children;
 } ASTData;
 
 struct ASTNode {
@@ -31,6 +32,8 @@ struct ASTNode {
   uint64_t count;
   /// The builtin associated with this node, if any.
   Builtin builtin;
+  /// The children beneath this node, if any.
+  ASTNode *children;
   /// Additional data associated with this node.
   ASTData data;
 };
