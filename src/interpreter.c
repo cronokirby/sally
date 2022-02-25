@@ -70,6 +70,42 @@ Error launch_and_wait(char const *name, char *const *argv) {
   return (Error){ERROR_NONE};
 }
 
+Error redirect_stdout(char *file_name, int *fd_out) {
+  FILE *fp = fopen(file_name, "w");
+  if (fp == NULL) {
+    return error_from_errno(errno);
+  }
+
+  Error err;
+
+  fflush(stdout);
+  *fd_out = dup(fileno(stdout));
+  if (*fd_out == -1) {
+    err = error_from_errno(errno);
+    goto err0;
+  }
+
+  if (dup2(fileno(fp), fileno(stdout)) < 0) {
+    err = error_from_errno(errno);
+    goto err1;
+  }
+
+  fclose(fp);
+  return (Error){ERROR_NONE};
+
+err1:
+  close(*fd_out);
+err0:
+  fclose(fp);
+  return err;
+}
+
+void restore_stdout(int fd) {
+  fflush(stdout);
+  dup2(fd, fileno(stdout));
+  close(fd);
+}
+
 const size_t STRING_STACK_START_CAPACITY = 32;
 
 typedef struct StringStack {
@@ -145,10 +181,28 @@ void interpreter_free(Interpreter *interpreter) {
 }
 
 Error interpreter_builtin(Interpreter *interpreter __attribute__((unused)),
-                          Builtin builtin) {
+                          OpFlag flag, Builtin builtin) {
   switch (builtin) {
   case BUILTIN_PWD: {
-    return print_working_directory();
+    Error err;
+
+    int fd;
+    if (flag & OP_FLAG_REDIRECT) {
+      StringHandle file_h = string_stack_pop(interpreter->string_stack);
+      char *file = string_arena_get_str(interpreter->arena, file_h);
+      err = redirect_stdout(file, &fd);
+      if (err.type != ERROR_NONE) {
+        return err;
+      }
+    }
+
+    err = print_working_directory();
+
+    if (flag & OP_FLAG_REDIRECT) {
+      restore_stdout(fd);
+    }
+
+    return err;
   }
   case BUILTIN_CD: {
     if (string_stack_size(interpreter->string_stack) < 1) {
@@ -157,14 +211,31 @@ Error interpreter_builtin(Interpreter *interpreter __attribute__((unused)),
     }
     StringHandle dir_h = string_stack_pop(interpreter->string_stack);
     char *dir = string_arena_get_str(interpreter->arena, dir_h);
-    return change_directory(dir);
+
+    int fd;
+    if (flag & OP_FLAG_REDIRECT) {
+      StringHandle file_h = string_stack_pop(interpreter->string_stack);
+      char *file = string_arena_get_str(interpreter->arena, file_h);
+
+      Error err = redirect_stdout(file, &fd);
+      if (err.type != ERROR_NONE) {
+        return err;
+      }
+    }
+
+    Error err = change_directory(dir);
+
+    if (flag & OP_FLAG_REDIRECT) {
+      restore_stdout(fd);
+    }
+    return err;
   }
   }
   return (Error){ERROR_NONE};
 }
 
 Error interpreter_command(Interpreter *interpreter __attribute__((unused)),
-                          char *name, size_t arg_count) {
+                          OpFlag flag, char *name, size_t arg_count) {
   if (arg_count + 2 > interpreter->argv_buf_capacity) {
     interpreter->argv_buf_capacity *= 2;
     interpreter->argv_buf =
@@ -176,14 +247,30 @@ Error interpreter_command(Interpreter *interpreter __attribute__((unused)),
     interpreter->argv_buf[i] = string_arena_get_str(interpreter->arena, handle);
   }
   interpreter->argv_buf[arg_count + 1] = NULL;
-  return launch_and_wait(name, interpreter->argv_buf);
+
+  int fd;
+  if (flag & OP_FLAG_REDIRECT) {
+    StringHandle file_h = string_stack_pop(interpreter->string_stack);
+    char *file = string_arena_get_str(interpreter->arena, file_h);
+
+    Error err = redirect_stdout(file, &fd);
+    if (err.type != ERROR_NONE) {
+      return err;
+    }
+  }
+
+  Error err = launch_and_wait(name, interpreter->argv_buf);
+
+  if (flag & OP_FLAG_REDIRECT) {
+    restore_stdout(fd);
+  }
+  return err;
 }
 
 Error interpreter_op(Interpreter *interpreter, Op op) {
-  printf("op_flag %d\n", op.flag);
   switch (op.type) {
   case OP_BUILTIN: {
-    return interpreter_builtin(interpreter, op.data.builtin);
+    return interpreter_builtin(interpreter, op.flag, op.data.builtin);
   }
   case OP_STRING: {
     string_stack_push(interpreter->string_stack, op.data.string);
@@ -191,7 +278,8 @@ Error interpreter_op(Interpreter *interpreter, Op op) {
   }
   case OP_COMMAND: {
     char *name = string_arena_get_str(interpreter->arena, op.data.command.name);
-    return interpreter_command(interpreter, name, op.data.command.arg_count);
+    return interpreter_command(interpreter, op.flag, name,
+                               op.data.command.arg_count);
   }
   }
   return (Error){ERROR_NONE};
