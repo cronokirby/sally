@@ -41,36 +41,45 @@ void op_buffer_free(OpBuffer *buf) {
   free(buf);
 }
 
-Error handle_node(ASTNode *input, OpBuffer *out) {
+Error handle_node(ASTNode *input, OpFlag flag, OpBuffer *out) {
   switch (input->type) {
   case AST_BUILTIN: {
     for (ssize_t i = input->count - 1; i >= 0; i--) {
-      Error err = handle_node(input->children + i, out);
+      Error err = handle_node(input->children + i, OP_FLAG_NONE, out);
       if (err.type != ERROR_NONE) {
         return err;
       }
     }
-    op_buffer_push(out, (Op){OP_BUILTIN, {.builtin = input->builtin}});
+    op_buffer_push(out,
+                   (Op){OP_BUILTIN, flag, {.builtin = input->builtin}});
     break;
   }
   case AST_COMMAND: {
     for (ssize_t i = input->count - 1; i >= 0; i--) {
-      Error err = handle_node(input->children + i, out);
+      Error err = handle_node(input->children + i, OP_FLAG_NONE, out);
       if (err.type != ERROR_NONE) {
         return err;
       }
     }
     op_buffer_push(out, (Op){OP_COMMAND,
+                             flag,
                              {.command = {.name = input->data.string,
                                           .arg_count = input->count}}});
     break;
   }
   case AST_ARG: {
-    op_buffer_push(out, (Op){OP_STRING, {.string = input->data.string}});
+    op_buffer_push(
+        out, (Op){OP_STRING, flag, {.string = input->data.string}});
     break;
   }
   case AST_REDIRECT: {
-    puts("redirect");
+    op_buffer_push(out, (Op){OP_STRING,
+                             flag,
+                             {.string = input->children[1].data.string}});
+    Error err = handle_node(input->children, OP_FLAG_REDIRECT, out);
+    if (err.type != ERROR_NONE) {
+      return err;
+    }
     break;
   }
   }
@@ -80,5 +89,5 @@ Error handle_node(ASTNode *input, OpBuffer *out) {
 Error compile(ASTNode *input, OpBuffer *out) {
   op_buffer_init(out);
 
-  return handle_node(input, out);
+  return handle_node(input, OP_FLAG_NONE, out);
 }

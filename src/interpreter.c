@@ -180,6 +180,7 @@ Error interpreter_command(Interpreter *interpreter __attribute__((unused)),
 }
 
 Error interpreter_op(Interpreter *interpreter, Op op) {
+  printf("op_flag %d\n", op.flag);
   switch (op.type) {
   case OP_BUILTIN: {
     return interpreter_builtin(interpreter, op.data.builtin);

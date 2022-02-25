@@ -15,6 +15,15 @@ typedef enum OpType {
   OP_STRING
 } OpType;
 
+/// Represents extra flags for some kind of command operation.
+///
+/// Not always relevant for each operation.
+typedef enum OpFlag {
+  OP_FLAG_NONE = 0,
+  OP_FLAG_REDIRECT = 1,
+  OP_FLAG_PIPE = 2
+} OpFlag;
+
 /// The data we have for a command operation.
 typedef struct OpDataCommand {
   StringHandle name;
@@ -34,6 +43,7 @@ typedef union OpData {
 /// manipulations of that stack, and its environment.
 typedef struct Op {
   OpType type;
+  OpFlag flag;
   OpData data;
 } Op;
 
