@@ -11,6 +11,9 @@ Error lexer_next(Lexer *lexer, Token *out) {
     char next = lexer->input[lexer->index];
     if (next == 0) {
       out->type = TOKEN_EOF;
+    } else if (next == '>') {
+      out->type = TOKEN_ANGLE_RIGHT;
+      lexer->index++;
     } else if (isspace(next)) {
       lexer->index++;
       continue;

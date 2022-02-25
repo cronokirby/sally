@@ -14,7 +14,9 @@ typedef enum ASTType {
   /// Represents an arbitrary command that isn't builtin.
   AST_COMMAND,
   /// Represent an individual argument for some command.
-  AST_ARG
+  AST_ARG,
+  /// Represents a redirection to a certain file
+  AST_REDIRECT
 } ASTType;
 
 /// Represents one of the nodes in our AST.

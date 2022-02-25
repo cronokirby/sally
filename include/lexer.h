@@ -14,6 +14,8 @@ typedef enum TokenType {
   /// These are used as the arguments to builtin commands, or to represent
   /// the invocation of binaries, etc.
   TOKEN_WORD,
+  /// The token `>`.
+  TOKEN_ANGLE_RIGHT,
   /// Represents the end of the input stream
   TOKEN_EOF
 } TokenType;

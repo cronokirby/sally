@@ -69,6 +69,10 @@ Error handle_node(ASTNode *input, OpBuffer *out) {
     op_buffer_push(out, (Op){OP_STRING, {.string = input->data.string}});
     break;
   }
+  case AST_REDIRECT: {
+    puts("redirect");
+    break;
+  }
   }
   return (Error){ERROR_NONE};
 }

@@ -121,14 +121,14 @@ Error parse_command(Parser *parser, ASTNode *out) {
   size_t capacity = DEFAULT_CHILD_COUNT;
   out->children = malloc(capacity * sizeof(ASTNode));
 
-  // Parse a list of arguments until we see EOF.
-  bool is_eof;
+  // Parse a list of arguments while we see words.
+  bool is_word;
   for (;;) {
-    err = parse_check(parser, TOKEN_EOF, &is_eof);
+    err = parse_check(parser, TOKEN_WORD, &is_word);
     if (err.type != ERROR_NONE) {
       return err;
     }
-    if (is_eof) {
+    if (!is_word) {
       break;
     }
     size_t next_count = out->count + 1;
@@ -142,6 +142,30 @@ Error parse_command(Parser *parser, ASTNode *out) {
     }
     out->count = next_count;
   }
+
+  // If we see a `>`, then we know that there's a redirection, and expect an arg.
+  bool is_angle_right;
+  err = parse_check(parser, TOKEN_ANGLE_RIGHT, &is_angle_right);
+  if (err.type != ERROR_NONE) {
+    return err;
+  }
+  if (!is_angle_right) {
+    return (Error){ERROR_NONE};
+  }
+  parse_advance(parser);
+
+  // A bit of annoying book-keeping. We've already written a node for the command,
+  // but now that node needs to become one of two children.
+  ASTNode* children = malloc(2 * sizeof(ASTNode));
+  memcpy(children, out, sizeof(ASTNode));
+  err = parse_arg(parser, children + 1);
+  if (err.type != ERROR_NONE) {
+    return err;
+  }
+
+  out->type = AST_REDIRECT;
+  out->count = 2;
+  out->children = children;
 
   return (Error){ERROR_NONE};
 }
