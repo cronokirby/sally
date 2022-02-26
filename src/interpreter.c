@@ -7,6 +7,67 @@
 #include "include/builtin.h"
 #include "include/interpreter.h"
 
+int print_working_directory() {
+  char buf[1024];
+  if (getcwd(buf, 1024) == NULL) {
+    return errno;
+  }
+  if (puts(buf) < 0) {
+    return errno;
+  }
+  return 0;
+}
+
+int change_directory(char *dir) {
+  if (chdir(dir) < 0) {
+    return errno;
+  }
+  return 0;
+}
+
+int launch_command(char *name, char **argv) {
+  if (execvp(name, argv) == -1) {
+    return errno;
+  }
+  return 0;
+}
+
+typedef enum RunnableType {
+  RUNNABLE_COMMAND,
+  RUNNABLE_CD,
+  RUNNABLE_PWD,
+} RunnableType;
+
+typedef struct RunnableDataCommand {
+  char *name;
+  char **argv;
+} RunnableDataCommand;
+
+typedef union RunnableData {
+  RunnableDataCommand command;
+  char *cd;
+} RunnableData;
+
+typedef struct Runnable {
+  RunnableType type;
+  RunnableData data;
+} Runnable;
+
+int runnable_run(Runnable r) {
+  switch (r.type) {
+  case RUNNABLE_COMMAND: {
+    return launch_command(r.data.command.name, r.data.command.argv);
+  }
+  case RUNNABLE_PWD: {
+    return print_working_directory();
+  }
+  case RUNNABLE_CD: {
+    return change_directory(r.data.cd);
+  }
+  }
+  return 0;
+}
+
 typedef struct ProcessHandle {
   pid_t pid;
   int err_fd;
@@ -52,25 +113,7 @@ void process_handle_buf_push(ProcessHandleBuf *buf, ProcessHandle handle) {
   buf->buf[buf->count++] = handle;
 }
 
-Error print_working_directory() {
-  char buf[1024];
-  if (getcwd(buf, 1024) == NULL) {
-    return error_from_errno(errno);
-  }
-  if (puts(buf) < 0) {
-    return error_from_errno(errno);
-  }
-  return (Error){ERROR_NONE};
-}
-
-Error change_directory(char *dir) {
-  if (chdir(dir) < 0) {
-    return error_from_errno(errno);
-  }
-  return (Error){ERROR_NONE};
-}
-
-Error launch(char const *name, char *const *argv, ProcessHandle *handle_out) {
+Error launch(Runnable r, ProcessHandle *handle_out) {
   if (fflush(stdout) == -1) {
     return error_from_errno(errno);
   }
@@ -89,11 +132,13 @@ Error launch(char const *name, char *const *argv, ProcessHandle *handle_out) {
   }
   if (pid == 0) {
     close(err_pipe[0]);
-    if (execvp(name, argv) == -1) {
-      write(err_pipe[1], &errno, sizeof(int));
+    int err_out = runnable_run(r);
+    if (err_out != 0) {
+      write(err_pipe[1], &err_out, sizeof(int));
       close(err_pipe[1]);
       abort();
     }
+    exit(0);
   } else {
     close(err_pipe[1]);
     handle_out->pid = pid;
@@ -234,30 +279,39 @@ void interpreter_free(Interpreter *interpreter) {
   free(interpreter);
 }
 
-Error interpreter_builtin(Interpreter *interpreter __attribute__((unused)),
-                          OpFlag flag, Builtin builtin) {
-  switch (builtin) {
-  case BUILTIN_PWD: {
-    Error err;
+Error interpreter_runnable(Interpreter *interpreter, Runnable r, OpFlag flag) {
+  int fd;
+  if (flag & OP_FLAG_REDIRECT) {
+    StringHandle file_h = string_stack_pop(interpreter->string_stack);
+    char *file = string_arena_get_str(interpreter->arena, file_h);
 
-    int fd;
-    if (flag & OP_FLAG_REDIRECT) {
-      StringHandle file_h = string_stack_pop(interpreter->string_stack);
-      char *file = string_arena_get_str(interpreter->arena, file_h);
-      err = redirect_stdout(file, &fd);
-      if (err.type != ERROR_NONE) {
-        return err;
-      }
+    Error err = redirect_stdout(file, &fd);
+    if (err.type != ERROR_NONE) {
+      return err;
     }
+  }
 
-    err = print_working_directory();
-
-    if (flag & OP_FLAG_REDIRECT) {
-      restore_stdout(fd);
-    }
-
+  ProcessHandle handle;
+  Error err = launch(r, &handle);
+  if (flag & OP_FLAG_REDIRECT) {
+    restore_stdout(fd);
+  }
+  if (err.type != ERROR_NONE) {
     return err;
   }
+  process_handle_buf_push(interpreter->process_buf, handle);
+  return (Error){ERROR_NONE};
+}
+
+Error interpreter_builtin(Interpreter *interpreter __attribute__((unused)),
+                          OpFlag flag, Builtin builtin) {
+  Runnable r;
+  switch (builtin) {
+  case BUILTIN_PWD: {
+    r = (Runnable){.type = RUNNABLE_PWD};
+    break;
+  }
+  // We don't use a runnable for CD, since we have no output.
   case BUILTIN_CD: {
     if (string_stack_size(interpreter->string_stack) < 1) {
       return (Error){ERROR_INTERPRETER,
@@ -266,26 +320,14 @@ Error interpreter_builtin(Interpreter *interpreter __attribute__((unused)),
     StringHandle dir_h = string_stack_pop(interpreter->string_stack);
     char *dir = string_arena_get_str(interpreter->arena, dir_h);
 
-    int fd;
-    if (flag & OP_FLAG_REDIRECT) {
-      StringHandle file_h = string_stack_pop(interpreter->string_stack);
-      char *file = string_arena_get_str(interpreter->arena, file_h);
-
-      Error err = redirect_stdout(file, &fd);
-      if (err.type != ERROR_NONE) {
-        return err;
-      }
+    int err = change_directory(dir);
+    if (err != 0) {
+      return error_from_errno(err);
     }
-
-    Error err = change_directory(dir);
-
-    if (flag & OP_FLAG_REDIRECT) {
-      restore_stdout(fd);
-    }
-    return err;
+    return (Error){ERROR_NONE};
   }
   }
-  return (Error){ERROR_NONE};
+  return interpreter_runnable(interpreter, r, flag);
 }
 
 Error interpreter_command(Interpreter *interpreter __attribute__((unused)),
@@ -302,27 +344,10 @@ Error interpreter_command(Interpreter *interpreter __attribute__((unused)),
   }
   interpreter->argv_buf[arg_count + 1] = NULL;
 
-  int fd;
-  if (flag & OP_FLAG_REDIRECT) {
-    StringHandle file_h = string_stack_pop(interpreter->string_stack);
-    char *file = string_arena_get_str(interpreter->arena, file_h);
+  Runnable r = {.type = RUNNABLE_COMMAND,
+                .data = {.command = {name, interpreter->argv_buf}}};
 
-    Error err = redirect_stdout(file, &fd);
-    if (err.type != ERROR_NONE) {
-      return err;
-    }
-  }
-
-  ProcessHandle handle;
-  Error err = launch(name, interpreter->argv_buf, &handle);
-  if (flag & OP_FLAG_REDIRECT) {
-    restore_stdout(fd);
-  }
-  if (err.type != ERROR_NONE) {
-    return err;
-  }
-  process_handle_buf_push(interpreter->process_buf, handle);
-  return (Error){ERROR_NONE};
+  return interpreter_runnable(interpreter, r, flag);
 }
 
 Error interpreter_op(Interpreter *interpreter, Op op) {
