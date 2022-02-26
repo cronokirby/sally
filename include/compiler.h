@@ -12,7 +12,7 @@ typedef enum OpType {
   /// A custom command.
   OP_COMMAND,
   /// Push a string onto the stack
-  OP_STRING
+  OP_STRING,
 } OpType;
 
 /// Represents extra flags for some kind of command operation.

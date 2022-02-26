@@ -12,6 +12,46 @@ typedef struct ProcessHandle {
   int err_fd;
 } ProcessHandle;
 
+typedef struct ProcessHandleBuf {
+  ProcessHandle *buf;
+  size_t count;
+  size_t capacity;
+} ProcessHandleBuf;
+
+const size_t PROCESS_HANDLE_BUF_START_CAPACITY = 2;
+
+ProcessHandleBuf *process_handle_buf_init() {
+  ProcessHandleBuf *out = malloc(sizeof(ProcessHandleBuf));
+  if (out == NULL) {
+    panic("interpreter: failed to allocate");
+  }
+  out->count = 0;
+  out->capacity = PROCESS_HANDLE_BUF_START_CAPACITY;
+  out->buf = malloc(out->capacity * sizeof(ProcessHandle));
+  if (out->buf == NULL) {
+    panic("interpreter: failed to allocate");
+  }
+  return out;
+}
+
+void process_handle_buf_reset(ProcessHandleBuf *buf) {
+  buf->count = 0;
+}
+
+void process_handle_buf_free(ProcessHandleBuf *buf) {
+  free(buf->buf);
+  free(buf);
+}
+
+void process_handle_buf_push(ProcessHandleBuf *buf, ProcessHandle handle) {
+  size_t required = buf->count + 1;
+  while (buf->capacity < required) {
+    buf->capacity *= 2;
+    buf->buf = realloc(buf->buf, buf->capacity * sizeof(ProcessHandle));
+  }
+  buf->buf[buf->count++] = handle;
+}
+
 Error print_working_directory() {
   char buf[1024];
   if (getcwd(buf, 1024) == NULL) {
@@ -168,6 +208,7 @@ void string_stack_push(StringStack *stack, StringHandle string) {
 struct Interpreter {
   StringArena *arena;
   StringStack *string_stack;
+  ProcessHandleBuf *process_buf;
 
   char **argv_buf;
   size_t argv_buf_capacity;
@@ -180,6 +221,7 @@ Interpreter *interpreter_init(StringArena *arena) {
   }
   out->arena = arena;
   out->string_stack = string_stack_init();
+  out->process_buf = process_handle_buf_init();
   out->argv_buf = NULL;
   out->argv_buf_capacity = 0;
   return out;
@@ -187,6 +229,7 @@ Interpreter *interpreter_init(StringArena *arena) {
 
 void interpreter_free(Interpreter *interpreter) {
   string_stack_free(interpreter->string_stack);
+  process_handle_buf_free(interpreter->process_buf);
   free(interpreter->argv_buf);
   free(interpreter);
 }
@@ -278,7 +321,8 @@ Error interpreter_command(Interpreter *interpreter __attribute__((unused)),
   if (err.type != ERROR_NONE) {
     return err;
   }
-  return wait_on_handle(&handle);
+  process_handle_buf_push(interpreter->process_buf, handle);
+  return (Error){ERROR_NONE};
 }
 
 Error interpreter_op(Interpreter *interpreter, Op op) {
@@ -299,9 +343,9 @@ Error interpreter_op(Interpreter *interpreter, Op op) {
   return (Error){ERROR_NONE};
 }
 
-Error interpreter_run(Interpreter *interpreter, OpBuffer *buf) {
-  for (size_t i = 0; i < buf->len; ++i) {
-    Error err = interpreter_op(interpreter, buf->ops[i]);
+Error interpreter_wait(Interpreter *interpreter) {
+  for (size_t i = 0; i < interpreter->process_buf->count; i++) {
+    Error err = wait_on_handle(interpreter->process_buf->buf + i);
     if (err.type != ERROR_NONE) {
       return err;
     }
@@ -309,6 +353,17 @@ Error interpreter_run(Interpreter *interpreter, OpBuffer *buf) {
   return (Error){ERROR_NONE};
 }
 
+Error interpreter_run(Interpreter *interpreter, OpBuffer *buf) {
+  for (size_t i = 0; i < buf->len; ++i) {
+    Error err = interpreter_op(interpreter, buf->ops[i]);
+    if (err.type != ERROR_NONE) {
+      return err;
+    }
+  }
+  return interpreter_wait(interpreter);
+}
+
 void interpreter_reset(Interpreter *interpreter) {
   string_stack_reset(interpreter->string_stack);
+  process_handle_buf_reset(interpreter->process_buf);
 }
