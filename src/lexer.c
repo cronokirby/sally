@@ -14,6 +14,9 @@ Error lexer_next(Lexer *lexer, Token *out) {
     } else if (next == '>') {
       out->type = TOKEN_ANGLE_RIGHT;
       lexer->index++;
+    } else if (next == '|') {
+      out->type = TOKEN_PIPE;
+      lexer->index++;
     } else if (isspace(next)) {
       lexer->index++;
       continue;

@@ -16,6 +16,8 @@ typedef enum TokenType {
   TOKEN_WORD,
   /// The token `>`.
   TOKEN_ANGLE_RIGHT,
+  /// The token `|`
+  TOKEN_PIPE,
   /// Represents the end of the input stream
   TOKEN_EOF
 } TokenType;
