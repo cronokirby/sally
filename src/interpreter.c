@@ -113,7 +113,8 @@ void process_handle_buf_push(ProcessHandleBuf *buf, ProcessHandle handle) {
   buf->buf[buf->count++] = handle;
 }
 
-Error launch(Runnable r, ProcessHandle *handle_out) {
+Error launch(Runnable r, ProcessHandle *handle_out, int redirect_stdout,
+             int redirect_stdin) {
   if (fflush(stdout) == -1) {
     return error_from_errno(errno);
   }
@@ -132,6 +133,14 @@ Error launch(Runnable r, ProcessHandle *handle_out) {
   }
   if (pid == 0) {
     close(err_pipe[0]);
+
+    if (redirect_stdout != -1) {
+      dup2(redirect_stdout, fileno(stdout));
+    }
+    if (redirect_stdin != -1) {
+      dup2(redirect_stdin, fileno(stdin));
+    }
+
     int err_out = runnable_run(r);
     if (err_out != 0) {
       write(err_pipe[1], &err_out, sizeof(int));
@@ -257,6 +266,7 @@ struct Interpreter {
 
   char **argv_buf;
   size_t argv_buf_capacity;
+  int last_pipe_fd;
 };
 
 Interpreter *interpreter_init(StringArena *arena) {
@@ -269,6 +279,7 @@ Interpreter *interpreter_init(StringArena *arena) {
   out->process_buf = process_handle_buf_init();
   out->argv_buf = NULL;
   out->argv_buf_capacity = 0;
+  out->last_pipe_fd = -1;
   return out;
 }
 
@@ -291,8 +302,29 @@ Error interpreter_runnable(Interpreter *interpreter, Runnable r, OpFlag flag) {
     }
   }
 
+  int redirect_stdin = -1;
+  if (flag & OP_FLAG_CONTINUE_PIPE) {
+    redirect_stdin = interpreter->last_pipe_fd;
+  }
+  int redirect_stdout = -1;
+  int pipe_fd[2] = {-1, -1};
+  if (flag & OP_FLAG_START_PIPE) {
+    if (pipe(pipe_fd) < 0) {
+      return error_from_errno(errno);
+    }
+    redirect_stdout = pipe_fd[1];
+    interpreter->last_pipe_fd = pipe_fd[0];
+  }
+
   ProcessHandle handle;
-  Error err = launch(r, &handle);
+  Error err = launch(r, &handle, redirect_stdout, redirect_stdin);
+  if (redirect_stdin != -1) {
+    close(redirect_stdin);
+  }
+  // Close the write end of the pipe
+  if (pipe_fd[1] != -1) {
+    close(pipe_fd[1]);
+  }
   if (flag & OP_FLAG_REDIRECT) {
     restore_stdout(fd);
   }
