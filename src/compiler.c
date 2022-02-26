@@ -50,8 +50,7 @@ Error handle_node(ASTNode *input, OpFlag flag, OpBuffer *out) {
         return err;
       }
     }
-    op_buffer_push(out,
-                   (Op){OP_BUILTIN, flag, {.builtin = input->builtin}});
+    op_buffer_push(out, (Op){OP_BUILTIN, flag, {.builtin = input->builtin}});
     break;
   }
   case AST_COMMAND: {
@@ -68,17 +67,24 @@ Error handle_node(ASTNode *input, OpFlag flag, OpBuffer *out) {
     break;
   }
   case AST_ARG: {
-    op_buffer_push(
-        out, (Op){OP_STRING, flag, {.string = input->data.string}});
+    op_buffer_push(out, (Op){OP_STRING, flag, {.string = input->data.string}});
     break;
   }
   case AST_REDIRECT: {
-    op_buffer_push(out, (Op){OP_STRING,
-                             flag,
-                             {.string = input->children[1].data.string}});
+    op_buffer_push(
+        out, (Op){OP_STRING, flag, {.string = input->children[1].data.string}});
     Error err = handle_node(input->children, OP_FLAG_REDIRECT, out);
     if (err.type != ERROR_NONE) {
       return err;
+    }
+    break;
+  }
+  case AST_PIPE: {
+    for (size_t i = 0; i < input->count; ++i) {
+      Error err = handle_node(input->children + i, OP_FLAG_NONE, out);
+      if (err.type != ERROR_NONE) {
+        return err;
+      }
     }
     break;
   }

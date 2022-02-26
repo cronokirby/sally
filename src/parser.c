@@ -143,7 +143,8 @@ Error parse_command(Parser *parser, ASTNode *out) {
     out->count = next_count;
   }
 
-  // If we see a `>`, then we know that there's a redirection, and expect an arg.
+  // If we see a `>`, then we know that there's a redirection, and expect an
+  // arg.
   bool is_angle_right;
   err = parse_check(parser, TOKEN_ANGLE_RIGHT, &is_angle_right);
   if (err.type != ERROR_NONE) {
@@ -154,9 +155,9 @@ Error parse_command(Parser *parser, ASTNode *out) {
   }
   parse_advance(parser);
 
-  // A bit of annoying book-keeping. We've already written a node for the command,
-  // but now that node needs to become one of two children.
-  ASTNode* children = malloc(2 * sizeof(ASTNode));
+  // A bit of annoying book-keeping. We've already written a node for the
+  // command, but now that node needs to become one of two children.
+  ASTNode *children = malloc(2 * sizeof(ASTNode));
   memcpy(children, out, sizeof(ASTNode));
   err = parse_arg(parser, children + 1);
   if (err.type != ERROR_NONE) {
@@ -170,8 +171,56 @@ Error parse_command(Parser *parser, ASTNode *out) {
   return (Error){ERROR_NONE};
 }
 
+Error parse_pipes(Parser *parser, ASTNode *out) {
+  size_t capacity = 2;
+  size_t count = 0;
+  ASTNode *children = malloc(capacity * sizeof(ASTNode));
+
+  Error err = parse_command(parser, children + count);
+  if (err.type != ERROR_NONE) {
+    return err;
+  }
+  count++;
+
+  bool is_pipe;
+  for (;;) {
+    err = parse_check(parser, TOKEN_PIPE, &is_pipe);
+    if (err.type != ERROR_NONE) {
+      return err;
+    }
+    if (!is_pipe) {
+      break;
+    }
+    parse_advance(parser);
+
+    size_t required = count + 1;
+    while (capacity < required) {
+      capacity *= 2;
+      children = realloc(children, capacity * sizeof(ASTNode));
+    }
+
+    err = parse_command(parser, children + count);
+    if (err.type != ERROR_NONE) {
+      return err;
+    }
+    count++;
+  }
+
+  if (count <= 1) {
+    memcpy(out, children, sizeof(ASTNode));
+    free(children);
+    return (Error){ERROR_NONE};
+  }
+
+  out->type = AST_PIPE;
+  out->count = count;
+  out->children = children;
+
+  return (Error){ERROR_NONE};
+}
+
 Error parser_parse(Parser *parser, ASTNode *out) {
   // Just initialize this so that the node can be freed even if we error.
   out->count = 0;
-  return parse_command(parser, out);
+  return parse_pipes(parser, out);
 }

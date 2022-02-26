@@ -15,8 +15,10 @@ typedef enum ASTType {
   AST_COMMAND,
   /// Represent an individual argument for some command.
   AST_ARG,
-  /// Represents a redirection to a certain file
-  AST_REDIRECT
+  /// Represents a redirection to a certain file.
+  AST_REDIRECT,
+  /// Represents the piping between two processes.
+  AST_PIPE
 } ASTType;
 
 /// Represents one of the nodes in our AST.
