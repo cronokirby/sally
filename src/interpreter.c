@@ -7,6 +7,11 @@
 #include "include/builtin.h"
 #include "include/interpreter.h"
 
+typedef struct ProcessHandle {
+  pid_t pid;
+  int err_fd;
+} ProcessHandle;
+
 Error print_working_directory() {
   char buf[1024];
   if (getcwd(buf, 1024) == NULL) {
@@ -25,7 +30,7 @@ Error change_directory(char *dir) {
   return (Error){ERROR_NONE};
 }
 
-Error launch_and_wait(char const *name, char *const *argv) {
+Error launch(char const *name, char *const *argv, ProcessHandle *handle_out) {
   if (fflush(stdout) == -1) {
     return error_from_errno(errno);
   }
@@ -51,21 +56,27 @@ Error launch_and_wait(char const *name, char *const *argv) {
     }
   } else {
     close(err_pipe[1]);
-    int exec_err;
-    int count;
-    for (count = -1; count == -1;
-         count = read(err_pipe[0], &exec_err, sizeof(int))) {
-      if (errno == EAGAIN || errno == EINTR) {
-        continue;
-      }
+    handle_out->pid = pid;
+    handle_out->err_fd = err_pipe[0];
+  }
+  return (Error){ERROR_NONE};
+}
+
+Error wait_on_handle(ProcessHandle *handle) {
+  int exec_err;
+  int count;
+  for (count = -1; count == -1;
+       count = read(handle->err_fd, &exec_err, sizeof(int))) {
+    if (errno == EAGAIN || errno == EINTR) {
+      continue;
     }
-    close(err_pipe[0]);
-    if (wait(&pid) == -1) {
-      return error_from_errno(errno);
-    }
-    if (count > 0) {
-      return error_from_errno(exec_err);
-    }
+  }
+  close(handle->err_fd);
+  if (wait(&handle->pid) == -1) {
+    return error_from_errno(errno);
+  }
+  if (count > 0) {
+    return error_from_errno(exec_err);
   }
   return (Error){ERROR_NONE};
 }
@@ -259,12 +270,15 @@ Error interpreter_command(Interpreter *interpreter __attribute__((unused)),
     }
   }
 
-  Error err = launch_and_wait(name, interpreter->argv_buf);
-
+  ProcessHandle handle;
+  Error err = launch(name, interpreter->argv_buf, &handle);
   if (flag & OP_FLAG_REDIRECT) {
     restore_stdout(fd);
   }
-  return err;
+  if (err.type != ERROR_NONE) {
+    return err;
+  }
+  return wait_on_handle(&handle);
 }
 
 Error interpreter_op(Interpreter *interpreter, Op op) {
