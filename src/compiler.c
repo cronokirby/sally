@@ -81,7 +81,14 @@ Error handle_node(ASTNode *input, OpFlag flag, OpBuffer *out) {
   }
   case AST_PIPE: {
     for (size_t i = 0; i < input->count; ++i) {
-      Error err = handle_node(input->children + i, OP_FLAG_NONE, out);
+      OpFlag flag = OP_FLAG_NONE;
+      if (i > 0) {
+        flag |= OP_FLAG_CONTINUE_PIPE;
+      }
+      if (i < input->count - 1) {
+        flag |= OP_FLAG_START_PIPE;
+      }
+      Error err = handle_node(input->children + i, flag, out);
       if (err.type != ERROR_NONE) {
         return err;
       }

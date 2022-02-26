@@ -21,7 +21,8 @@ typedef enum OpType {
 typedef enum OpFlag {
   OP_FLAG_NONE = 0,
   OP_FLAG_REDIRECT = 1,
-  OP_FLAG_PIPE = 2
+  OP_FLAG_START_PIPE = 2,
+  OP_FLAG_CONTINUE_PIPE = 4
 } OpFlag;
 
 /// The data we have for a command operation.
